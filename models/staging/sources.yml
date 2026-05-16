@@ -1,0 +1,476 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Raw source tables loaded from CSV into Databricks for the gilt-layers finance 
+      analytics project. Data covers January 2023 to December 2024 across two
+      divisions — Retail Banking and Commercial Banking — spanning 12 branches,
+      200 customers, 443 accounts, 20,000 transactions, and 2,396 fee records.
+    database: "workspace"
+    schema: "finance"
+
+    tables:
+      # -----------------------------------------------------------------------
+      # ACCOUNTS MASTER
+      # -----------------------------------------------------------------------
+      - name: a_m
+        description: >
+          Accounts master table. One record per account across both banking
+          divisions. Retail account types (SAV, CHK, CC, LN) are held at
+          retail branches; commercial account types (COM_CHK, COM_LN) are
+          held at commercial branches. Accounts link to customers via c_id
+          and to branches via br_cd.
+        columns:
+          - name: a_id
+            description: >
+              Primary key. Unique integer identifier for each account.
+            data_tests:
+              - unique
+              - not_null
+
+          - name: c_id
+            description: >
+              Foreign key to c_m.c_id. The customer who holds this account.
+              One customer may hold multiple accounts across different types
+              and branches.
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw', 'c_m')
+                    field: c_id
+
+          - name: a_typ
+            description: >
+              Account type code. Retail Banking types: SAV (savings account),
+              CHK (checking account), CC (credit card), LN (retail loan).
+              Commercial Banking types: COM_CHK (commercial checking account),
+              COM_LN (commercial loan). Account type determines which fee types
+              apply and how portfolio balance is calculated in the semantic layer.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['SAV', 'CHK', 'CC', 'LN', 'COM_CHK', 'COM_LN']
+
+          - name: a_opn_dt
+            description: >
+              Date the account was opened. Used to derive account_age_days
+              and months_since_opened in downstream silver and gold models.
+              Always populated.
+            data_tests:
+              - not_null
+
+          - name: a_cls_dt
+            description: >
+              Date the account was closed. Null for the 364 accounts with
+              status O (open) or F (frozen). Populated only when a_st = 'C'.
+
+          - name: a_st
+            description: >
+              Account status code. O = Open (357 accounts), C = Closed
+              (79 accounts), F = Frozen (7 accounts). Frozen accounts are
+              surfaced separately in the gold layer as they represent a
+              distinct compliance or risk state, not a closed account.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['O', 'C', 'F']
+
+          - name: a_bal
+            description: >
+              Current account balance in USD. Negative values indicate a
+              debit balance — typical for credit cards (outstanding spend)
+              and loans (outstanding principal). Range: –$253,607 to
+              $475,624.
+            data_tests:
+              - not_null
+
+          - name: br_cd
+            description: >
+              Foreign key to b_m.br_cd. The branch where this account
+              is held. Determines the account's division (Retail or
+              Commercial) and geographic region via the branch master.
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw', 'b_m')
+                    field: br_cd
+
+      # -----------------------------------------------------------------------
+      # BRANCHES MASTER
+      # -----------------------------------------------------------------------
+      - name: b_m
+        description: >
+          Branches master table. One record per branch. Contains 8 Retail
+          Banking branches (BR001–BR008) and 4 Commercial Banking branches
+          (BR009–BR012), distributed across 5 geographic regions. Each
+          branch belongs to exactly one division via d_cd. This table is
+          the join path from accounts to divisions.
+        columns:
+          - name: br_cd
+            description: >
+              Primary key. Branch code in the format BR{NNN} (e.g. BR001,
+              BR012). Referenced as a foreign key in a_m.br_cd.
+            data_tests:
+              - unique
+              - not_null
+
+          - name: br_nm
+            description: >
+              Full human-readable branch name, following the pattern
+              '{City} {Division type}' (e.g. 'Boston Retail',
+              'NYC Commercial'). Used as the display label in
+              Tableau branch performance views.
+            data_tests:
+              - unique
+              - not_null
+
+          - name: rgn_cd
+            description: >
+              Geographic region code. NE = Northeast, SE = Southeast,
+              MW = Midwest, SW = Southwest, W = West. Used to roll up
+              branch-level KPIs to regional performance in the gold layer.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['NE', 'SE', 'MW', 'SW', 'W']
+
+          - name: d_cd
+            description: >
+              Foreign key to d_m.d_cd. The division this branch belongs to.
+              RB = Retail Banking (8 branches), CB = Commercial Banking
+              (4 branches). This is the critical link between branches
+              and the division-level semantic layer definitions.
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw', 'd_m')
+                    field: d_cd
+
+      # -----------------------------------------------------------------------
+      # CUSTOMERS MASTER
+      # -----------------------------------------------------------------------
+      - name: c_m
+        description: >
+          Customers master table. One record per customer. Customers are
+          segmented into three groups — RTL (retail), PRM (premium), and
+          COM (commercial) — which map to divisions: RTL and PRM belong
+          to Retail Banking, COM belongs to Commercial Banking. Contains
+          KYC compliance status and a risk score used for department-level
+          risk flagging.
+        columns:
+          - name: c_id
+            description: >
+              Primary key. Unique integer identifier for each customer.
+              Referenced as a foreign key in a_m.c_id.
+            data_tests:
+              - unique
+              - not_null
+
+          - name: c_extrn_ref
+            description: >
+              External CRM reference identifier in the format
+              CRM-{NNNNNN}-{XXXX}. Used for cross-system reconciliation
+              with upstream CRM data. Should be unique per customer.
+            data_tests:
+              - unique
+              - not_null
+
+          - name: c_dob
+            description: >
+              Customer date of birth. Used in the silver layer to derive
+              customer_age (in years) and age_bucket (18-30, 31-45,
+              46-60, 60+) for segmentation analytics.
+            data_tests:
+              - not_null
+
+          - name: c_onb_dt
+            description: >
+              Date the customer was onboarded onto the platform. Used to
+              derive customer_tenure_days and to identify new customers
+              (within 90 days for Retail Banking, 180 days for Commercial
+              Banking as defined in the semantic layer).
+            data_tests:
+              - not_null
+
+          - name: c_seg
+            description: >
+              Customer segment code. RTL = Retail (standard personal banking,
+              122 customers), PRM = Premium (high-value personal banking,
+              43 customers), COM = Commercial (business banking, 35 customers).
+              RTL and PRM roll up to Retail Banking; COM rolls up to
+              Commercial Banking for division-level metrics.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['RTL', 'PRM', 'COM']
+
+          - name: c_st_cd
+            description: >
+              Customer status code. AC = Active (170 customers), DM = Dormant
+              (15 customers — no meaningful account activity in an extended
+              period), CL = Closed (15 customers). Dormant and closed customers
+              may still have accounts on record. Status drives the
+              active_customer_count metric in the semantic layer.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['AC', 'DM', 'CL']
+
+          - name: c_rsk_sc
+            description: >
+              Customer risk score, ranging from 1 (lowest risk) to 55
+              (highest risk). Risk thresholds are division-specific in the
+              semantic layer: a score of ≥ 40 flags high risk for Retail
+              Banking; ≥ 30 flags high risk for Commercial Banking.
+            data_tests:
+              - not_null
+
+          - name: c_kyc_flg
+            description: >
+              Know Your Customer (KYC) completion flag. 1 = KYC checks
+              complete, 0 = KYC incomplete. 3 customers currently have a
+              value of 0 and are surfaced as a compliance alert in the
+              Tableau dashboard. The target value is always 1.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [0, 1]
+
+      # -----------------------------------------------------------------------
+      # DIVISIONS MASTER
+      # -----------------------------------------------------------------------
+      - name: d_m
+        description: >
+          Divisions master table. One record per division. The top-level
+          organizational split of the business: Retail Banking (RB) and
+          Commercial Banking (CB). This two-row lookup table is the primary
+          driver of all department-level metric definitions in the semantic
+          layer, including how revenue, active customers, digital adoption,
+          and risk thresholds are calculated per division.
+          Recommended to implement as a dbt seed.
+        columns:
+          - name: d_cd
+            description: >
+              Primary key. Division code. RB = Retail Banking, CB = Commercial
+              Banking. Referenced as a foreign key in b_m.d_cd.
+            data_tests:
+              - unique
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['RB', 'CB']
+
+          - name: d_nm
+            description: >
+              Full division name. 'Retail Banking' or 'Commercial Banking'.
+              Used as the display label in Tableau division-level views and
+              the semantic layer metric definitions.
+            data_tests:
+              - unique
+              - not_null
+
+      # -----------------------------------------------------------------------
+      # FEES LEDGER
+      # -----------------------------------------------------------------------
+      - name: f_l
+        description: >
+          Fees ledger. One record per fee charged to an account. Covers
+          8 fee types split by division: retail fees (MAINT, OD, ATM,
+          POS_INTCH) and commercial fees (TRADE_FIN, WIRE, LN_INT, SVC).
+          Total fee revenue is approximately $6.96M across 2,396 records.
+          Note: 1,015 records have a t_id that does not match any record
+          in t_l. These are standalone periodic fees (e.g. monthly
+          maintenance charges) generated outside the transaction flow —
+          they are valid revenue records and must not be dropped. They are
+          flagged as is_standalone_fee in the silver layer.
+        columns:
+          - name: f_id
+            description: >
+              Primary key. Unique integer identifier for each fee record.
+            data_tests:
+              - unique
+              - not_null
+
+          - name: a_id
+            description: >
+              Foreign key to a_m.a_id. The account on which this fee
+              was charged.
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw', 'a_m')
+                    field: a_id
+
+          - name: t_id
+            description: >
+              Soft foreign key to t_l.t_id. Links this fee to the specific
+              transaction that generated it where applicable. 1,015 records
+              carry a t_id value that does not match any transaction —
+              these represent standalone periodic fees not tied to a
+              specific transaction event. A warn-severity relationship
+              test is applied rather than an error, as this mismatch is
+              expected behaviour.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('raw', 't_l')
+                    field: t_id
+                  config:
+                    severity: warn
+
+          - name: f_typ
+            description: >
+              Fee type code. Retail Banking fee types: MAINT (monthly
+              maintenance fee), OD (overdraft fee), ATM (ATM surcharge),
+              POS_INTCH (POS interchange fee). Commercial Banking fee types:
+              TRADE_FIN (trade finance fee), WIRE (wire transfer fee),
+              LN_INT (loan interest charge), SVC (service charge). Fee type
+              determines which division a fee belongs to in the semantic layer.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['MAINT', 'OD', 'ATM', 'POS_INTCH', 'TRADE_FIN', 'WIRE', 'LN_INT', 'SVC']
+
+          - name: f_amt
+            description: >
+              Fee amount in USD. Always a positive value — fees are charges
+              applied to an account, never credits. Range: $5.07 to
+              $49,709.21.
+            data_tests:
+              - not_null
+
+          - name: f_dt
+            description: >
+              Date the fee was applied to the account. For transaction-linked
+              fees, this will typically match or closely follow t_l.t_dt.
+              For standalone fees (e.g. MAINT), this is the periodic
+              charge date.
+            data_tests:
+              - not_null
+
+      # -----------------------------------------------------------------------
+      # TRANSACTIONS LEDGER
+      # -----------------------------------------------------------------------
+      - name: t_l
+        description: >
+          Transactions ledger. The highest-volume source table with one
+          record per transaction across all accounts. Covers January 2023
+          to December 2024. Includes 7 transaction types across 6 channels.
+          Transactions progress through a settlement lifecycle tracked by
+          t_st: Settled (18,392), Pending (1,187), and Returned (421).
+          The signed direction of a transaction is determined by combining
+          t_amt with t_dr_cr — this is resolved to a signed_amount column
+          in the silver layer.
+        columns:
+          - name: t_id
+            description: >
+              Primary key. Unique integer identifier for each transaction.
+              Referenced as a soft foreign key in f_l.t_id.
+            data_tests:
+              - unique
+              - not_null
+
+          - name: a_id
+            description: >
+              Foreign key to a_m.a_id. The account on which this transaction
+              was posted.
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw', 'a_m')
+                    field: a_id
+
+          - name: t_dt
+            description: >
+              Transaction date — the date the transaction was initiated or
+              authorised. Always on or before t_post_dt. Used as the primary
+              date dimension for trend analysis in gold layer models.
+            data_tests:
+              - not_null
+
+          - name: t_post_dt
+            description: >
+              Posting date — the date the transaction was posted to the
+              account ledger. May differ from t_dt due to settlement lag
+              (e.g. weekend transactions, wire transfers). Used with t_dt
+              to derive settlement_lag_days in the silver layer.
+            data_tests:
+              - not_null
+
+          - name: t_amt
+            description: >
+              Transaction amount in USD. Always a positive value — the
+              debit or credit direction is captured separately in t_dr_cr.
+              Range: $5.27 to $49,955.52. Combined with t_dr_cr to produce
+              signed_amount in the silver layer.
+            data_tests:
+              - not_null
+
+          - name: t_dr_cr
+            description: >
+              Debit/credit indicator. D = Debit (money leaving the account,
+              e.g. a purchase or withdrawal), C = Credit (money entering the
+              account, e.g. a deposit or refund). Combined with t_amt to
+              produce signed_amount in the silver layer: debits become
+              negative, credits positive.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['D', 'C']
+
+          - name: t_typ
+            description: >
+              Transaction type code. POS = point-of-sale purchase,
+              DEP = deposit, TFR = transfer between accounts, WDR = cash
+              withdrawal, FEE = fee applied via the transaction ledger
+              (distinct from standalone fees in f_l), INT = interest
+              payment or accrual, ATM = ATM cash transaction.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['POS', 'DEP', 'TFR', 'WDR', 'FEE', 'INT', 'ATM']
+
+          - name: t_ch
+            description: >
+              Transaction channel code. POS = point-of-sale terminal,
+              ONL = online banking portal, MOB = mobile banking app,
+              BR = branch teller, ATM = ATM machine, WIRE = wire transfer.
+              ONL and MOB are classified as digital channels across both
+              divisions. WIRE is additionally included in the Commercial
+              Banking definition of digital adoption in the semantic layer.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['POS', 'ONL', 'MOB', 'BR', 'ATM', 'WIRE']
+
+          - name: t_st
+            description: >
+              Transaction settlement status. S = Settled (18,392 — fully
+              processed and posted), P = Pending (1,187 — awaiting
+              settlement, e.g. in-flight wire transfers or weekend
+              transactions), R = Returned (421 — rejected or reversed
+              transactions). Gold layer volume metrics use settled
+              transactions only for Retail Banking. Commercial Banking
+              includes pending transactions in volume counts to account
+              for wire settlement lag, as defined in the semantic layer.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments: 
+                    values: ['S', 'P', 'R']
