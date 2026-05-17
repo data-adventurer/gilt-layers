@@ -1,0 +1,94 @@
+version: 2
+
+seeds:
+
+  - name: divisions
+    description: >
+      Division master seed. Two rows representing the top-level organisational
+      split of the business. Retail Banking (RB) covers personal savings,
+      checking, credit card, and loan accounts. Commercial Banking (CB) covers
+      business checking and commercial loan accounts. This seed is the root of
+      all division-level metric definitions in the semantic layer.
+    config:
+      column_types:
+        division_code: varchar(2)
+        division_name: varchar(30)
+    columns:
+      - name: division_code
+        description: >
+          Primary key. Two-character division identifier. RB = Retail Banking,
+          CB = Commercial Banking. Referenced as a foreign key via
+          stg_finance__branches.division_code.
+        data_tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['RB', 'CB']
+
+      - name: division_name
+        description: >
+          Full display name of the division. 'Retail Banking' or
+          'Commercial Banking'. Used as the label in Tableau
+          division-level views.
+        data_tests:
+          - unique
+          - not_null
+
+  - name: branches
+    description: >
+      Branch master seed. Twelve rows covering 8 Retail Banking branches
+      (BR001-BR008) and 4 Commercial Banking branches (BR009-BR012) across
+      5 geographic regions. Each branch belongs to exactly one division.
+      This seed is the primary join path between accounts and divisions,
+      and drives branch- and region-level performance rollups in the gold layer.
+    config:
+      column_types:
+        branch_code: varchar(5)
+        branch_name: varchar(30)
+        region_code: varchar(2)
+        division_code: varchar(2)
+    columns:
+      - name: branch_code
+        description: >
+          Primary key. Branch identifier in the format BR{NNN}. Referenced
+          as a foreign key in stg_finance__accounts.branch_code.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: branch_name
+        description: >
+          Full display name of the branch, following the pattern
+          '{City} {Division type}' (e.g. 'Boston Retail',
+          'NYC Commercial'). Used as the label in Tableau branch
+          performance views.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: region_code
+        description: >
+          Geographic region code. NE = Northeast, SE = Southeast,
+          MW = Midwest, SW = Southwest, W = West. Used to roll up
+          branch-level KPIs to regional performance in the gold layer.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['NE', 'SE', 'MW', 'SW', 'W']
+
+      - name: division_code
+        description: >
+          Foreign key to divisions.division_code. The division this branch
+          belongs to. RB = Retail Banking (8 branches), CB = Commercial
+          Banking (4 branches).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('divisions')
+                field: division_code
+          - accepted_values:
+              arguments:
+                values: ['RB', 'CB']
