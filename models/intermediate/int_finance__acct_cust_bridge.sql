@@ -24,13 +24,13 @@ customers as (
 
 branches as (
 
-    select * from {{ ref('stg_finance__branches') }}
+    select * from {{ ref('branches') }}
 
 ),
 
 divisions as (
 
-    select * from {{ ref('stg_finance__divisions') }}
+    select * from {{ ref('divisions') }}
 
 ),
 
