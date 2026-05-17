@@ -101,59 +101,6 @@ sources:
                     field: br_cd
 
       # -----------------------------------------------------------------------
-      # BRANCHES MASTER
-      # -----------------------------------------------------------------------
-      - name: b_m
-        description: >
-          Branches master table. One record per branch. Contains 8 Retail
-          Banking branches (BR001–BR008) and 4 Commercial Banking branches
-          (BR009–BR012), distributed across 5 geographic regions. Each
-          branch belongs to exactly one division via d_cd. This table is
-          the join path from accounts to divisions.
-        columns:
-          - name: br_cd
-            description: >
-              Primary key. Branch code in the format BR{NNN} (e.g. BR001,
-              BR012). Referenced as a foreign key in a_m.br_cd.
-            data_tests:
-              - unique
-              - not_null
-
-          - name: br_nm
-            description: >
-              Full human-readable branch name, following the pattern
-              '{City} {Division type}' (e.g. 'Boston Retail',
-              'NYC Commercial'). Used as the display label in
-              Tableau branch performance views.
-            data_tests:
-              - unique
-              - not_null
-
-          - name: rgn_cd
-            description: >
-              Geographic region code. NE = Northeast, SE = Southeast,
-              MW = Midwest, SW = Southwest, W = West. Used to roll up
-              branch-level KPIs to regional performance in the gold layer.
-            data_tests:
-              - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['NE', 'SE', 'MW', 'SW', 'W']
-
-          - name: d_cd
-            description: >
-              Foreign key to d_m.d_cd. The division this branch belongs to.
-              RB = Retail Banking (8 branches), CB = Commercial Banking
-              (4 branches). This is the critical link between branches
-              and the division-level semantic layer definitions.
-            data_tests:
-              - not_null
-              - relationships:
-                  arguments:
-                    to: source('raw', 'd_m')
-                    field: d_cd
-
-      # -----------------------------------------------------------------------
       # CUSTOMERS MASTER
       # -----------------------------------------------------------------------
       - name: c_m
@@ -245,39 +192,6 @@ sources:
               - accepted_values:
                   arguments:
                     values: [0, 1]
-
-      # -----------------------------------------------------------------------
-      # DIVISIONS MASTER
-      # -----------------------------------------------------------------------
-      - name: d_m
-        description: >
-          Divisions master table. One record per division. The top-level
-          organizational split of the business: Retail Banking (RB) and
-          Commercial Banking (CB). This two-row lookup table is the primary
-          driver of all department-level metric definitions in the semantic
-          layer, including how revenue, active customers, digital adoption,
-          and risk thresholds are calculated per division.
-          Recommended to implement as a dbt seed.
-        columns:
-          - name: d_cd
-            description: >
-              Primary key. Division code. RB = Retail Banking, CB = Commercial
-              Banking. Referenced as a foreign key in b_m.d_cd.
-            data_tests:
-              - unique
-              - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['RB', 'CB']
-
-          - name: d_nm
-            description: >
-              Full division name. 'Retail Banking' or 'Commercial Banking'.
-              Used as the display label in Tableau division-level views and
-              the semantic layer metric definitions.
-            data_tests:
-              - unique
-              - not_null
 
       # -----------------------------------------------------------------------
       # FEES LEDGER

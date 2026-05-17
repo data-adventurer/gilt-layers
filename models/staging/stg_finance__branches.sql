@@ -2,7 +2,7 @@
 
 with source as (
 
-    select * from {{ source('raw', 'b_m') }}
+    select * from {{ ref('branches') }}
 
 ),
 

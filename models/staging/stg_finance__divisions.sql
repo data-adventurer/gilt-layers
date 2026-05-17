@@ -2,7 +2,7 @@
 
 with source as (
 
-    select * from {{ source('raw', 'd_m') }}
+    select * from {{ ref('divisions') }}
 
 ),
 

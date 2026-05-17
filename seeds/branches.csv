@@ -1,0 +1,13 @@
+branch_code,branch_name,region_code,division_code
+BR001,Boston Retail,NE,RB
+BR002,Atlanta Retail,SE,RB
+BR003,Chicago Retail,MW,RB
+BR004,Dallas Retail,SW,RB
+BR005,Denver Retail,W,RB
+BR006,Seattle Retail,NE,RB
+BR007,Miami Retail,SE,RB
+BR008,Phoenix Retail,MW,RB
+BR009,NYC Commercial,NE,CB
+BR010,SF Commercial,SE,CB
+BR011,Houston Commercial,MW,CB
+BR012,Charlotte Commercial,SW,CB
