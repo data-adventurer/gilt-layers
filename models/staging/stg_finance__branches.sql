@@ -11,8 +11,8 @@ renamed as (
     select
         br_cd as branch_code
         , br_nm as branch_name
-        , rgn_cd as region
-        , d_cd as division
+        , rgn_cd as region_code
+        , d_cd as division_code
 
     from source
 
