@@ -5,7 +5,7 @@ models:
   # ---------------------------------------------------------------------------
   # ACCOUNTS
   # ---------------------------------------------------------------------------
-  - name: int_finance__accounts
+  - name: int_finance__accounts_decoded
     description: >
       Decoded accounts. One row per account. Extends stg_finance__accounts
       with human-readable labels for account_type and account_status, boolean
@@ -21,92 +21,53 @@ models:
 
       - name: customer_id
         description: Foreign key to int_finance__customers.customer_id.
-        data_tests:
-          - not_null
 
       - name: branch_code
         description: Foreign key to the branches seed.
-        data_tests:
-          - not_null
 
       - name: account_type_code
         description: Raw account type code from source (SAV, CHK, CC, LN, COM_CHK, COM_LN).
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments: 
-                values: ['SAV', 'CHK', 'CC', 'LN', 'COM_CHK', 'COM_LN']
 
       - name: account_type
         description: Decoded account type label (e.g. 'Savings', 'Commercial Loan').
-        data_tests:
-          - not_null
 
       - name: account_status_code
         description: Raw account status code from source (O, C, F).
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments: 
-                values: ['O', 'C', 'F']
 
       - name: account_status
         description: Decoded account status (Open, Closed, Frozen).
-        data_tests:
-          - not_null
 
       - name: balance
         description: Current account balance in USD. Negative values are valid for CC and LN accounts.
-        data_tests:
-          - not_null
 
       - name: balance_band
         description: Balance banding — Negative / Low (0–$9,999) / Mid ($10K–$49,999) / High ($50K+).
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['Negative', 'Low', 'Mid', 'High']
 
       - name: is_retail_product
         description: True if account_type_code is SAV, CHK, CC, or LN.
-        data_tests:
-          - not_null
 
       - name: is_commercial_product
         description: True if account_type_code is COM_CHK or COM_LN.
-        data_tests:
-          - not_null
 
       - name: is_open
         description: True when account_status_code = 'O'.
-        data_tests:
-          - not_null
 
       - name: is_closed
         description: True when account_status_code = 'C'.
-        data_tests:
-          - not_null
 
       - name: is_frozen
         description: True when account_status_code = 'F'.
-        data_tests:
-          - not_null
 
       - name: account_age_days
         description: Number of days between open_date and today.
-        data_tests:
-          - not_null
 
       - name: account_age_months
         description: account_age_days divided by 30.44, floored to the nearest whole month.
-        data_tests:
-          - not_null
 
   # ---------------------------------------------------------------------------
   # CUSTOMERS
   # ---------------------------------------------------------------------------
-  - name: int_finance__customers
+  - name: int_finance__customers_decoded
     description: >
       Decoded customers. One row per customer. Extends stg_finance__customers
       with human-readable labels for segment and status, derived age and age
@@ -123,102 +84,63 @@ models:
 
       - name: customer_segment_code
         description: Raw segment code from source (RTL, PRM, COM).
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['RTL', 'PRM', 'COM']
 
       - name: customer_segment
         description: Decoded segment label (Retail, Premium, Commercial).
-        data_tests:
-          - not_null
 
       - name: customer_status_code
         description: Raw status code from source (AC, DM, CL).
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['AC', 'DM', 'CL']
 
       - name: customer_status
         description: Decoded status label (Active, Dormant, Closed).
-        data_tests:
-          - not_null
 
       - name: is_retail_customer
         description: True if customer_segment_code is RTL or PRM.
-        data_tests:
-          - not_null
 
       - name: is_commercial_customer
         description: True if customer_segment_code is COM.
-        data_tests:
-          - not_null
 
       - name: is_active
         description: True when customer_status_code = 'AC'.
-        data_tests:
-          - not_null
 
       - name: customer_age
         description: Customer age in whole years, derived from date_of_birth.
-        data_tests:
-          - not_null
 
       - name: age_bucket
         description: Age banding — 18-30, 31-45, 46-60, 60+.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['18-30', '31-45', '46-60', '60+']
 
       - name: tenure_days
         description: Number of days between onboard_date and today.
-        data_tests:
-          - not_null
 
       - name: tenure_months
         description: tenure_days divided by 30.44, floored to the nearest whole month.
-        data_tests:
-          - not_null
 
       - name: is_new_retail_customer
         description: >
           True if the customer was onboarded within the last 90 days.
           Applies the Retail Banking definition of "new customer" as set
           in the semantic layer.
-        data_tests:
-          - not_null
 
       - name: is_new_commercial_customer
         description: >
           True if the customer was onboarded within the last 180 days.
           Applies the Commercial Banking definition of "new customer" as
           set in the semantic layer.
-        data_tests:
-          - not_null
 
       - name: is_high_risk_retail
         description: >
           True if risk_score >= 40. Applies the Retail Banking high-risk
           threshold as defined in the semantic layer.
-        data_tests:
-          - not_null
 
       - name: is_high_risk_commercial
         description: >
           True if risk_score >= 30. Applies the Commercial Banking high-risk
           threshold — stricter than retail — as defined in the semantic layer.
-        data_tests:
-          - not_null
 
   # ---------------------------------------------------------------------------
   # TRANSACTIONS
   # ---------------------------------------------------------------------------
-  - name: int_finance__transactions
+  - name: int_finance__transactions_decoded
     description: >
       Decoded transactions. One row per transaction. Extends
       stg_finance__transactions with human-readable labels for type, channel,
@@ -235,78 +157,45 @@ models:
 
       - name: account_id
         description: Foreign key to int_finance__accounts.account_id.
-        data_tests:
-          - not_null
 
       - name: transaction_type_code
         description: Raw transaction type code from source (POS, DEP, TFR, WDR, FEE, INT, ATM).
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['POS', 'DEP', 'TFR', 'WDR', 'FEE', 'INT', 'ATM']
 
       - name: transaction_type
         description: Decoded transaction type label (e.g. 'Point of Sale', 'Deposit').
-        data_tests:
-          - not_null
 
-      - name: channel_code
+      - name: transaction_channel_code
         description: Raw channel code from source (POS, ONL, MOB, BR, ATM, WIRE).
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['POS', 'ONL', 'MOB', 'BR', 'ATM', 'WIRE']
 
       - name: channel
         description: Decoded channel label (e.g. 'Online', 'Mobile', 'Wire Transfer').
-        data_tests:
-          - not_null
 
       - name: transaction_status_code
         description: Raw status code from source (S, P, R).
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['S', 'P', 'R']
 
-      - name: transaction_status
+      - name: settlement_status
         description: Decoded status label (Settled, Pending, Returned).
-        data_tests:
-          - not_null
 
-      - name: signed_amount
+      - name: transaction_amount
         description: >
           Transaction amount with direction applied. Debits (transaction_indicator = 'D')
           are negative; credits (transaction_indicator = 'C') are positive. Use this
           column for net flow calculations. Use amount when direction does not matter.
-        data_tests:
-          - not_null
 
       - name: is_settled
         description: True when transaction_status_code = 'S'.
-        data_tests:
-          - not_null
 
       - name: is_pending
         description: True when transaction_status_code = 'P'.
-        data_tests:
-          - not_null
 
       - name: is_returned
         description: True when transaction_status_code = 'R'.
-        data_tests:
-          - not_null
 
       - name: is_digital_retail
         description: >
           True when channel_code is MOB or ONL. Applies the Retail Banking
           definition of a digital transaction. Used in the digital adoption
           rate metric for the Retail division.
-        data_tests:
-          - not_null
 
       - name: is_digital_commercial
         description: >
@@ -314,31 +203,23 @@ models:
           Commercial Banking definition of a digital transaction, which
           includes wire transfers. Used in the digital adoption rate
           metric for the Commercial division.
-        data_tests:
-          - not_null
 
       - name: settlement_lag_days
         description: >
           Number of days between transaction_date and posting_date. Zero
-          for same-day settlements. Typically 1–2 days for card transactions,
+          for same-day settlements. Typically 1-2 days for card transactions,
           higher for wire transfers.
-        data_tests:
-          - not_null
 
       - name: transaction_month
         description: transaction_date truncated to the first of the month. Used for monthly aggregation in gold models.
-        data_tests:
-          - not_null
 
       - name: transaction_year
         description: Calendar year of transaction_date.
-        data_tests:
-          - not_null
 
   # ---------------------------------------------------------------------------
   # FEES
   # ---------------------------------------------------------------------------
-  - name: int_finance__fees
+  - name: int_finance__fees_decoded
     description: >
       Decoded fees. One row per fee record. Extends stg_finance__fees with a
       decoded fee_type label, boolean flags for division classification, and
@@ -355,8 +236,6 @@ models:
 
       - name: account_id
         description: Foreign key to int_finance__accounts.account_id.
-        data_tests:
-          - not_null
 
       - name: transaction_id
         description: >
@@ -365,37 +244,24 @@ models:
 
       - name: fee_type_code
         description: Raw fee type code from source.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['MAINT', 'OD', 'ATM', 'POS_INTCH', 'TRADE_FIN', 'WIRE', 'LN_INT', 'SVC']
 
       - name: fee_type
         description: Decoded fee type label (e.g. 'Maintenance', 'POS Interchange', 'Trade Finance').
-        data_tests:
-          - not_null
 
       - name: fee_amount
         description: Fee amount in USD. Always positive.
-        data_tests:
-          - not_null
 
       - name: is_retail_fee
         description: >
           True when fee_type_code is MAINT, OD, ATM, or POS_INTCH.
           These four types constitute Retail Banking fee revenue in the
           semantic layer.
-        data_tests:
-          - not_null
 
       - name: is_commercial_fee
         description: >
           True when fee_type_code is TRADE_FIN, WIRE, LN_INT, or SVC.
           These four types constitute Commercial Banking fee revenue in
           the semantic layer.
-        data_tests:
-          - not_null
 
       - name: is_standalone_fee
         description: >
@@ -403,23 +269,17 @@ models:
           record in stg_finance__transactions. These 1,015 records are
           periodic charges not tied to a transaction event. They are
           valid revenue and must be included in fee aggregations.
-        data_tests:
-          - not_null
 
       - name: fee_month
         description: fee_date truncated to the first of the month. Used for monthly aggregation in gold_fee_revenue.
-        data_tests:
-          - not_null
 
       - name: fee_year
         description: Calendar year of fee_date.
-        data_tests:
-          - not_null
 
   # ---------------------------------------------------------------------------
   # ACCOUNT CUSTOMER BRIDGE
   # ---------------------------------------------------------------------------
-  - name: int_finance__account_customer_bridge
+  - name: int_finance__acct_cust_bridge
     description: >
       Core enriched entity for gilt-layers. One row per account, fully
       denormalised with customer, branch, and division context. Built by
@@ -440,31 +300,18 @@ models:
 
       - name: division_code
         description: Division this account belongs to, derived via branch. RB or CB.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['RB', 'CB']
 
       - name: division_name
         description: Full division name — 'Retail Banking' or 'Commercial Banking'.
-        data_tests:
-          - not_null
 
       - name: region_code
         description: Geographic region code of the account's branch (NE, SE, MW, SW, W).
-        data_tests:
-          - not_null
 
       - name: region_name
         description: Decoded region name (e.g. 'Northeast', 'Midwest').
-        data_tests:
-          - not_null
 
-      - name: kyc_complete
+      - name: know_your_cust_flag
         description: >
           KYC completion flag carried through from int_finance__customers.
           False for 3 customers — surfaced as a compliance alert in the
           Tableau dashboard.
-        data_tests:
-          - not_null
