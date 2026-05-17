@@ -1,0 +1,313 @@
+version: 2
+
+models:
+
+  # ---------------------------------------------------------------------------
+  # FEE REVENUE
+  # ---------------------------------------------------------------------------
+  - name: gold_fee_revenue
+    description: >
+      Fee revenue aggregated by fee type, calendar month, and division.
+      One row per fee type per month per division. Retail and commercial
+      fee types are kept as separate rows so the semantic layer can filter
+      cleanly to each division's revenue definition. Standalone fees
+      (periodic charges not linked to a transaction) are broken out
+      separately from transaction-linked fees but both are included in
+      total_fee_revenue.
+    columns:
+      - name: fee_month
+        description: First day of the calendar month the fees were applied. Primary date grain for trend analysis.
+        data_tests:
+          - not_null
+
+      - name: fee_year
+        description: Calendar year of fee_month.
+        data_tests:
+          - not_null
+
+      - name: fee_month_num
+        description: Calendar month number (1–12) of fee_month.
+        data_tests:
+          - not_null
+
+      - name: fee_type_code
+        description: Raw fee type code (MAINT, OD, ATM, POS_INTCH, TRADE_FIN, WIRE, LN_INT, SVC).
+        data_tests:
+          - not_null
+
+      - name: fee_type
+        description: Decoded fee type label (e.g. 'Maintenance', 'POS Interchange', 'Trade Finance').
+        data_tests:
+          - not_null
+
+      - name: division_code
+        description: Division this fee type belongs to (RB or CB), derived via account → branch → division.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['RB', 'CB']
+
+      - name: division_name
+        description: Full division name — 'Retail Banking' or 'Commercial Banking'.
+        data_tests:
+          - not_null
+
+      - name: is_retail_fee
+        description: True when fee_type_code is MAINT, OD, ATM, or POS_INTCH.
+        data_tests:
+          - not_null
+
+      - name: is_commercial_fee
+        description: True when fee_type_code is TRADE_FIN, WIRE, LN_INT, or SVC.
+        data_tests:
+          - not_null
+
+      - name: fee_count
+        description: Total number of individual fee records in this fee type / month / division group.
+        data_tests:
+          - not_null
+
+      - name: total_fee_revenue
+        description: Sum of fee_amount across all fee records in this group, including standalone fees.
+        data_tests:
+          - not_null
+
+      - name: avg_fee_amount
+        description: Average fee amount within this group.
+        data_tests:
+          - not_null
+
+      - name: standalone_fee_count
+        description: >
+          Number of fee records in this group that are not linked to a transaction
+          (is_standalone_fee = true). These are periodic charges such as monthly
+          maintenance fees.
+        data_tests:
+          - not_null
+
+      - name: transaction_linked_fee_count
+        description: Number of fee records in this group that are linked to a transaction.
+        data_tests:
+          - not_null
+
+      - name: standalone_fee_revenue
+        description: Total revenue from standalone fees in this group.
+        data_tests:
+          - not_null
+
+      - name: transaction_linked_fee_revenue
+        description: Total revenue from transaction-linked fees in this group.
+        data_tests:
+          - not_null
+
+
+  # ---------------------------------------------------------------------------
+  # CHANNEL MIX
+  # ---------------------------------------------------------------------------
+  - name: gold_channel_mix
+    description: >
+      Transaction volume and settlement rates by channel, calendar month,
+      and division. One row per channel per month per division. Division
+      context is included so Tableau can apply the correct digital adoption
+      definition per division — Retail Banking counts MOB and ONL as digital;
+      Commercial Banking additionally counts WIRE. The is_digital_retail and
+      is_digital_commercial flags are carried through so the semantic layer
+      can compute the correct rate without a case statement at query time.
+    columns:
+      - name: transaction_month
+        description: First day of the calendar month. Primary date grain for channel trend analysis.
+        data_tests:
+          - not_null
+
+      - name: transaction_year
+        description: Calendar year of transaction_month.
+        data_tests:
+          - not_null
+
+      - name: transaction_month_num
+        description: Calendar month number (1–12) of transaction_month.
+        data_tests:
+          - not_null
+
+      - name: channel_code
+        description: Raw channel code (POS, ONL, MOB, BR, ATM, WIRE).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['POS', 'ONL', 'MOB', 'BR', 'ATM', 'WIRE']
+
+      - name: channel
+        description: Decoded channel label (e.g. 'Online', 'Mobile', 'Wire Transfer').
+        data_tests:
+          - not_null
+
+      - name: division_code
+        description: Division of the accounts that transacted via this channel this month.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['RB', 'CB']
+
+      - name: division_name
+        description: Full division name.
+        data_tests:
+          - not_null
+
+      - name: is_digital_retail
+        description: >
+          True when channel_code is MOB or ONL. Applies the Retail Banking
+          definition of a digital channel. Use this flag when computing
+          digital adoption rate for Retail Banking.
+        data_tests:
+          - not_null
+
+      - name: is_digital_commercial
+        description: >
+          True when channel_code is MOB, ONL, or WIRE. Applies the
+          Commercial Banking definition of a digital channel. Use this
+          flag when computing digital adoption rate for Commercial Banking.
+        data_tests:
+          - not_null
+
+      - name: is_wire
+        description: True when channel_code is WIRE.
+        data_tests:
+          - not_null
+
+      - name: transaction_count
+        description: Total number of transactions via this channel in this month and division.
+        data_tests:
+          - not_null
+
+      - name: total_volume
+        description: Sum of transaction amounts (always positive, pre-sign) for this group.
+        data_tests:
+          - not_null
+
+      - name: avg_transaction_amount
+        description: Average transaction amount within this group.
+        data_tests:
+          - not_null
+
+      - name: settled_count
+        description: Number of transactions with status Settled in this group.
+        data_tests:
+          - not_null
+
+      - name: pending_count
+        description: Number of transactions with status Pending in this group.
+        data_tests:
+          - not_null
+
+      - name: returned_count
+        description: Number of transactions with status Returned in this group.
+        data_tests:
+          - not_null
+
+      - name: settled_pct
+        description: Percentage of transactions in this group that are Settled (0–100, rounded to 2dp).
+        data_tests:
+          - not_null
+
+      - name: pending_pct
+        description: Percentage of transactions in this group that are Pending (0–100, rounded to 2dp).
+        data_tests:
+          - not_null
+
+      - name: returned_pct
+        description: Percentage of transactions in this group that are Returned (0–100, rounded to 2dp).
+        data_tests:
+          - not_null
+
+
+  # ---------------------------------------------------------------------------
+  # ACCOUNT SUMMARY
+  # ---------------------------------------------------------------------------
+  - name: gold_account_summary
+    description: >
+      One row per account. Extends int_finance__account_customer_bridge with
+      aggregated transaction counts, debit/credit volumes, net flow, and fee
+      totals. All bridge columns (account, customer, branch, division context)
+      are carried through so Tableau can filter by any dimension without
+      additional joins. Accounts with no transaction history have transaction
+      metrics coalesced to zero and is_dormant_account set to true.
+    columns:
+      - name: account_id
+        description: Primary key. Unique identifier for each account.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: total_transaction_count
+        description: Total number of transactions on this account across all time.
+        data_tests:
+          - not_null
+
+      - name: settled_transaction_count
+        description: Number of settled transactions on this account.
+        data_tests:
+          - not_null
+
+      - name: pending_transaction_count
+        description: Number of pending transactions on this account.
+        data_tests:
+          - not_null
+
+      - name: returned_transaction_count
+        description: Number of returned transactions on this account.
+        data_tests:
+          - not_null
+
+      - name: total_debit_volume
+        description: >
+          Sum of all debit transaction amounts on this account (always positive).
+          Represents gross money out.
+        data_tests:
+          - not_null
+
+      - name: total_credit_volume
+        description: >
+          Sum of all credit transaction amounts on this account (always positive).
+          Represents gross money in.
+        data_tests:
+          - not_null
+
+      - name: net_flow
+        description: >
+          Net of all signed_amount values — total_credit_volume minus
+          total_debit_volume. Positive = net inflow, negative = net outflow.
+        data_tests:
+          - not_null
+
+      - name: last_transaction_date
+        description: Date of the most recent transaction on this account. Null if no transactions exist.
+
+      - name: first_transaction_date
+        description: Date of the earliest transaction on this account. Null if no transactions exist.
+
+      - name: days_since_last_transaction
+        description: >
+          Number of days between last_transaction_date and today.
+          Null for accounts with no transaction history.
+
+      - name: total_fee_count
+        description: Total number of fee records charged to this account.
+        data_tests:
+          - not_null
+
+      - name: total_fees_charged
+        description: Total fees charged to this account in USD across all time.
+        data_tests:
+          - not_null
+
+      - name: is_dormant_account
+        description: >
+          True if no transaction has been recorded in the last 90 days, or if
+          the account has no transaction history at all. Distinct from
+          customer_is_dormant — an open account can be dormant while the
+          customer remains active across other accounts.
+        data_tests:
+          - not_null
