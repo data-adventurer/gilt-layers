@@ -8,7 +8,7 @@ sources:
       divisions — Retail Banking and Commercial Banking — spanning 12 branches,
       200 customers, 443 accounts, 20,000 transactions, and 2,396 fee records.
     database: "workspace"
-    schema: "finance"
+    schema: "raw"
 
     tables:
       # -----------------------------------------------------------------------

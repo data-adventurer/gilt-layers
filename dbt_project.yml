@@ -37,5 +37,9 @@ clean-targets:         # directories to be removed by `dbt clean`
 
 models:
   gilt_layers:
-    models:
-      +materialized: view
+    +catalog: workspace
+    +schema: finance
+    
+    intermediate:
+      +materialized: table
+      +file_format: delta
